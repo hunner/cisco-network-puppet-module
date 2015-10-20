@@ -35,26 +35,17 @@ Puppet::Type.type(:domain_name).provide(:nxapi) do
 
   def initialize(value={})
     super(value)
-    @domains = Cisco::DomainName.domainnames
+    @domain = Cisco::DomainName.domainnames[@property_hash[:name]]
     @property_flush = {}
   end
 
-  def self.properties_get(name, vrf=nil)
-    current_state = {
-      name:   "#{name}",
-      vrf:    vrf.nil? ? 'default' : vrf,
-      ensure: :present,
-    }
-
-    new(current_state)
-  end # self.properties_get
-
   def self.instances
-    # VRF support should iterate through list of VRFs and return an array containing
-    # the set domain name for each VRF
     domains = []
-    Cisco::DomainName.domainnames.each do |name, vrf|
-      domains << properties_get(name, vrf)
+    Cisco::DomainName.domainnames.each_key do |id|
+      domains << new(
+        name:   id,
+        ensure: :present,
+      )
     end
 
     domains
@@ -88,5 +79,14 @@ Puppet::Type.type(:domain_name).provide(:nxapi) do
 
   def flush
     validate
+
+    if @property_flush[:ensure] == :absent
+      @domain.destroy
+      @domain = nil
+      @property_hash[:ensure] = :absent
+    else
+      @domain = Cisco::DomainName.new(@resource[:name])
+      @property_hash[:ensure] = :present
+    end
   end
 end # Puppet::Type
